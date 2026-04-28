@@ -12,9 +12,7 @@ import orderRouter from './routes/orderRoute.js';
 // app config
 
 const app = express()
-const port = process.env.port || 4000
-connectDB()
-connectCloudinary()
+const port = Number(process.env.PORT) || 4000
 
 // middleware
 app.use(express.json()
@@ -31,4 +29,14 @@ app.get ('/',(req,res)=>{
     res.send("API WORKING")
 })
 
-app.listen(port, ()=> console.log('Server started on PORT ',port)) 
+const startServer = async () => {
+    try {
+        app.listen(port, () => console.log('Server started on PORT ', port))
+        await connectCloudinary()
+        await connectDB()
+    } catch (error) {
+        console.error('Startup warning:', error.message)
+    }
+}
+
+startServer()
