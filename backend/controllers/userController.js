@@ -104,4 +104,38 @@ const adminLogin = async (req, res) => {
 
 }
 
-export { loginUser, registerUser, adminLogin } 
+// Route to get user profile
+const getUserProfile = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const user = await userModel.findById(userId).select('-password');
+        if (!user) {
+            return res.json({ success: false, message: "User not found" })
+        }
+        res.json({ success: true, user })
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message })
+    }
+}
+
+// Route to update user profile
+const updateUserProfile = async (req, res) => {
+    try {
+        const { userId, name } = req.body;
+        if (!name || name.trim().length < 2) {
+            return res.json({ success: false, message: "Name must be at least 2 characters" })
+        }
+        const user = await userModel.findByIdAndUpdate(
+            userId,
+            { name: name.trim() },
+            { new: true }
+        ).select('-password');
+        res.json({ success: true, user })
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message })
+    }
+}
+
+export { loginUser, registerUser, adminLogin, getUserProfile, updateUserProfile }

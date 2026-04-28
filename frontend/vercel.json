@@ -1,9 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "env": {
-    "VITE_BACKEND_URL": "@vite_backend_url"
-  },
   "rewrites": [
     {
       "source": "/(.*)",

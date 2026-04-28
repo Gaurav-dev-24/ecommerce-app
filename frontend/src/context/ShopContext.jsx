@@ -17,7 +17,8 @@ const ShopContextProvider = (props) => {
     const [cartItems, setCartItems] = useState({});
     const [products,setProducts] = useState([]);
     const [token,setToken] = useState('')
-    const navigate = useNavigate(); 
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     const addToCart = async (itemId, size) => {
 
@@ -120,7 +121,9 @@ const ShopContextProvider = (props) => {
         } catch (error) {
            console.log(error);
            toast.error(error.message)
-           
+
+        } finally {
+            setTimeout(() => setLoading(false), 600);
         }
     }
 
@@ -163,7 +166,7 @@ const ShopContextProvider = (props) => {
             addToCart,
             getCartCount, updateQuantity ,
             getCartAmount , navigate , backendUrl
-            , setToken , token
+            , setToken , token, loading
         };
 
         return (
