@@ -5,13 +5,14 @@ import { assets } from '../assets/assets'
 import { ShopContext } from '../context/ShopContext'
 import { toast } from 'react-toastify'
 import axios from 'axios'
-const currency = '$'
- 
+
 
 const PlaceOrder = () => {
 
   const [method, setMethod] = useState('cod');
   const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
+  const [submitting, setSubmitting] = useState(false)
+  const [gatewayLoading, setGatewayLoading] = useState(null)
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -32,40 +33,41 @@ const PlaceOrder = () => {
 
   }
 
-  const initPay = (order)=>{
+  const initPay = (order) => {
     const options = {
-      key : import.meta.env.VITE_RAZORPAY_KEY_ID,
-      amount : order.amount,
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount: order.amount,
       currency: order.currency,
       name: 'Order Payment',
       description: 'Order Payment',
-      order_id : order.id,
+      order_id: order.id,
       receipt: order.receipt,
-      handler: async (response)=>{
-        console.log(response);
+      handler: async (response) => {
         try {
-          const {data} = await axios.post(backendUrl + '/api/order/verifyRazorpay',response,{headers:{token}})
+          const { data } = await axios.post(backendUrl + '/api/order/verifyRazorpay', response, { headers: { token } })
           if (data.success) {
             navigate('/orders')
             setCartItems({})
-            
           }
         } catch (error) {
-          console.log(error);
-          toast.error(error)
-          
-          
+          toast.error(error.message)
         }
+      },
+      modal: {
+        ondismiss: () => setGatewayLoading(null)
       }
     }
     const rzp = new window.Razorpay(options)
     rzp.open()
+    setTimeout(() => setGatewayLoading(null), 1500)
   }
 
 
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
+    if (submitting) return
+    setSubmitting(true)
     try {
       let orderItems = []
       for (const productId in cartItems) {
@@ -90,7 +92,6 @@ const PlaceOrder = () => {
 
       switch (method) {
 
-        // API Calls for COD
         case 'cod':
           const response = await axios.post(backendUrl + '/api/order/place', orderData, { headers: { token } })
           if (response.data.success) {
@@ -104,42 +105,47 @@ const PlaceOrder = () => {
 
           break;
         case 'stripe':
-          const resposneStripe = await axios.post(backendUrl + '/api/order/stripe',orderData,{headers:{token}})
+          setGatewayLoading('Stripe')
+          const resposneStripe = await axios.post(backendUrl + '/api/order/stripe', orderData, { headers: { token } })
 
           if (resposneStripe.data.success) {
-            const{session_url} = resposneStripe.data
+            const { session_url } = resposneStripe.data
             window.location.replace(session_url)
-            
+
           } else {
+            setGatewayLoading(null)
             toast.error(resposneStripe.data.message)
-            
+
           }
 
-         break;
-         case 'razorpay':
+          break;
+        case 'razorpay':
+          setGatewayLoading('Razorpay')
+
+          const responseRazorpay = await axios.post(backendUrl + '/api/order/razorpay', orderData, { headers: { token } })
+
+          if (responseRazorpay.data.success) {
+            initPay(responseRazorpay.data.order);
+          } else {
+            setGatewayLoading(null)
+            toast.error(responseRazorpay.data.message)
+          }
 
 
-         const responseRazorpay = await axios.post(backendUrl+'/api/order/razorpay',orderData,{headers:{token}})
-
-         if (responseRazorpay.data.success) {
-          initPay(responseRazorpay.data.order);
-          
-          
-         }
 
 
-
-
-         break;
+          break;
 
         default:
           break;
       }
 
     } catch (error) {
-      console.log(error);
+      setGatewayLoading(null)
       toast.error(error.message)
-      
+
+    } finally {
+      setSubmitting(false)
     }
 
   };
@@ -196,12 +202,45 @@ const PlaceOrder = () => {
                 </div>
               </div>
               <div className='w-full text-end mt-8'>
-                <button type='submit' className='bg-black text-white px-16 py-3 text-sm '>PLACE ORDER</button>
+                <button
+                  type='submit'
+                  disabled={submitting}
+                  className='bg-black text-white px-16 py-3 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed'
+                >
+                  {submitting && (
+                    <span className='inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin'></span>
+                  )}
+                  {submitting ? 'PROCESSING...' : 'PLACE ORDER'}
+                </button>
               </div>
             </div>
           </div>
         </div>
       </form>
+
+      {gatewayLoading && (
+        <div className='fixed inset-0 z-[9999] bg-white/95 backdrop-blur-sm flex items-center justify-center px-4'>
+          <div className='flex flex-col items-center gap-5 max-w-sm text-center'>
+            <div className='relative w-16 h-16 sm:w-20 sm:h-20'>
+              <div className='absolute inset-0 rounded-full border-[3px] border-gray-200'></div>
+              <div className='absolute inset-0 rounded-full border-[3px] border-transparent border-t-black animate-spin'></div>
+            </div>
+            <div>
+              <p className='text-base sm:text-lg font-medium text-gray-900 tracking-wide'>
+                Loading {gatewayLoading} payment gateway
+              </p>
+              <p className='text-xs sm:text-sm text-gray-500 mt-2'>
+                Please wait, redirecting you securely...
+              </p>
+            </div>
+            <div className='flex gap-1 mt-1'>
+              <span className='w-1.5 h-1.5 bg-gray-700 rounded-full animate-bounce' style={{ animationDelay: '0ms' }}></span>
+              <span className='w-1.5 h-1.5 bg-gray-700 rounded-full animate-bounce' style={{ animationDelay: '150ms' }}></span>
+              <span className='w-1.5 h-1.5 bg-gray-700 rounded-full animate-bounce' style={{ animationDelay: '300ms' }}></span>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
